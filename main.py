@@ -129,6 +129,8 @@ class LoadCV:
 
     import pandas as pd
 
+    import pandas as pd
+
     def record(self, counter: int = None) -> pd.DataFrame:
         '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
         for ONE frame
@@ -153,11 +155,13 @@ class LoadCV:
 
         # Determine the new frame ID
         if counter is None:  # Snapshot mode
-            # If the last frame ID is a number, increment it by 1; else use 1 as the first frame ID
-            if isinstance(last_frame, int) and last_frame >= 0:
-                new_frame_id = last_frame + 1
+            # If the last frame ID is in <ID>-<counter> format, increment <ID>
+            if isinstance(last_frame, str) and '-' in last_frame:
+                last_id, _ = last_frame.split('-')
+                new_frame_id = f"{int(last_id) + 1}-0"
             else:
-                new_frame_id = 1  # If last frame ID was in format <ID>-<counter>, reset to 1
+                # If last frame ID is just a number, increment it and use counter 0 for the snapshot
+                new_frame_id = last_frame + 1 if isinstance(last_frame, int) else 1
         elif counter == 0:  # New recording or reset
             # If the last frame is in <ID>-<counter> format, increment <ID>
             if isinstance(last_frame, str) and '-' in last_frame:

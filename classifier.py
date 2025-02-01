@@ -4,6 +4,7 @@ from main import LoadCV, HandTrackingDynamic
 
 # Global flag for video feed visibility
 show_video = False
+import time
 
 
 class SceneBase:
@@ -174,24 +175,26 @@ class VideoRecord(SceneBase):
                 screen.blit(text_surface, (100, 100))
 
         if self.record_button.is_clicked()[0]:
-
+            time.sleep(1)
             res = self.video_feed.record(self.counter)
-            if res is None:  # Recording finished
-                self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
+
+            if self.recording_started:
+                self.recording_started = False
+                print("STOPED RECORDING")
+            else:
+                self.recording_started = True
+                print("BEGIN RECORDING")
+                self.counter = 0
+
+        if self.recording_started:
+            res = self.video_feed.record(self.counter)
+            if res is None:
+                self.video_feed.record(self.counter)
                 text_surface = pygame.font.SysFont('Arial', 40).render("No hand was detected ! Try again", True,
                                                                        (100, 100, 100))
                 screen.blit(text_surface, (100, 100))
                 self.recording_started = False
-                return
-
-            if self.recording_started:
-                self.recording_started = False
-            else:
-                self.recording_started = True
-                self.counter = 0
-
-            self.counter += 1
-
+            self.counter +=1
 
         if frame_surface:
             screen.blit(frame_surface, (320, 120))  # Position the video inside Pygame window
