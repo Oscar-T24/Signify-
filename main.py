@@ -88,10 +88,10 @@ class HandTrackingDynamic:
 
 
 class LoadCV:
-    def __init__(self):
+    def __init__(self,path=0):
         """Initialize the camera and hand tracking."""
         self.ptime = 0
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(path)
         self.detector = HandTrackingDynamic()  # Initialize the hand tracking module
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -109,7 +109,7 @@ class LoadCV:
         frame = self.detector.findFingers(frame)  # Process frame with hand tracking
         lmsList = self.detector.findPosition(frame)
         #if len(lmsList) != 0:
-            #print("PSOITIONS",lmsList[0])
+           # print("PSOITIONS",lmsList[0])
 
         ctime = time.time()
         fps = 1 / (ctime - self.ptime) if self.ptime != 0 else 0
@@ -125,11 +125,6 @@ class LoadCV:
         frame_surface = pygame.surfarray.make_surface(frame)
         return frame_surface
 
-    import pandas as pd
-
-    import pandas as pd
-
-    import pandas as pd
 
     def record(self, counter: int = None) -> pd.DataFrame:
         '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
@@ -194,8 +189,20 @@ class LoadCV:
         df.to_csv('hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('hand_landmarks_data.csv'),
                   index=False)
 
-        print(f"RECORDED with Frame ID: {new_frame_id}")
-        return df
+    def export(self):
+        '''Exports the recorded hand landmarks to a Dataframe for analysis (note different formatting than csv)'''
+        file = pd.read_csv("hand_landmarks_data.csv")
+        file_pivoted = file.pivot_table(index=['Frame'],
+                                        columns='Landmark_ID',
+                                        values=['Normalized_X', 'Normalized_Y'],
+                                        aggfunc='first')
+
+        file_pivoted.columns = [f'({col[0]}{col[1]})' for col in file_pivoted.columns]
+
+        file_pivoted = file_pivoted.reset_index()
+
+        return file_pivoted
+
 
     def release(self):
         """Release the camera and close OpenCV windows."""

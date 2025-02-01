@@ -5,7 +5,7 @@ import math
 
 
 class HandTrackingDynamic:
-    def __init__(self, mode=False, maxHands=2, detectionCon=0.5, trackCon=0.5):
+    def __init__(self, mode=False, maxHands=2, detectionCon=0.5, trackCon=0.5, hand_threshold=0.1):
         self.__mode__ = mode
         self.__maxHands__ = maxHands
         self.__detectionCon__ = detectionCon
@@ -15,6 +15,11 @@ class HandTrackingDynamic:
                                         min_tracking_confidence=self.__trackCon__)
         self.mpDraw = mp.solutions.drawing_utils
         self.tipIds = [4, 8, 12, 16, 20]
+
+        # Variables to track hand count occurrences
+        self.frame_count = 0
+        self.two_hand_count = 0
+        self.hand_threshold = hand_threshold  # Threshold for error (percentage of frames with two hands)
 
     def findFingers(self, frame, draw=True):
         imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -47,73 +52,56 @@ class HandTrackingDynamic:
                 xmin, xmax = min(xList), max(xList)
                 ymin, ymax = min(yList), max(yList)
                 bbox = xmin, ymin, xmax, ymax
-                print(f"Hand {handNo + 1} Keypoint")
-                print(bbox)
                 if draw:
                     cv2.rectangle(frame, (xmin - 20, ymin - 20), (xmax + 20, ymax + 20), (0, 255, 0), 2)
 
                 all_landmarks.append((handData, bbox))  # Store data for this hand
 
+        # Count frames and two-hand occurrences
+        self.frame_count += 1
+        if len(all_landmarks) > 1:
+            self.two_hand_count += 1
+
         return all_landmarks
 
-    def findFingerUp(self):
-        fingers = []
+    def check_hand_threshold(self):
+        if self.frame_count == 0:
+            return False  # Avoid division by zero
 
-        if self.lmsList[self.tipIds[0]][1] > self.lmsList[self.tipIds[0] - 1][1]:
-            fingers.append(1)
-        else:
-            fingers.append(0)
-
-        for id in range(1, 5):
-            if self.lmsList[self.tipIds[id]][2] < self.lmsList[self.tipIds[id] - 2][2]:
-                fingers.append(1)
-            else:
-                fingers.append(0)
-
-        return fingers
-
-    def findDistance(self, p1, p2, frame, draw=True, r=15, t=3):
-        x1, y1 = self.lmsList[p1][1:]
-        x2, y2 = self.lmsList[p2][1:]
-        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-
-        if draw:
-            cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 255), t)
-            cv2.circle(frame, (x1, y1), r, (255, 0, 255), cv2.FILLED)
-            cv2.circle(frame, (x2, y2), r, (255, 0, 0), cv2.FILLED)
-            cv2.circle(frame, (cx, cy), r, (0, 0.255), cv2.FILLED)
-        len = math.hypot(x2 - x1, y2 - y1)
-
-        return len, frame, [x1, y1, x2, y2, cx, cy]
+        two_hand_ratio = self.two_hand_count / self.frame_count
+        if two_hand_ratio > self.hand_threshold:
+            print(f"⚠️ Error: Two hands detected in {two_hand_ratio * 100:.2f}% of frames. Exiting.")
+            return True
+        return False
 
 
 def main(video_path):
     ctime = 0
     ptime = 0
+
     cap = cv2.VideoCapture(video_path)
     detector = HandTrackingDynamic()
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     if not cap.isOpened():
-        print("Cannot open camera")
+        print("Cannot open video")
         exit()
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
-            print(f"end of video {video_path}. closing window...")
-            cap.release()
+            print(f"End of video {video_path}. Closing window...")
             break
 
         frame = detector.findFingers(frame)
         all_hands_data = detector.findPosition(frame)
 
-        # Process multiple hands
-        if len(all_hands_data) > 0:
-            for handNo, (landmarks, bbox) in enumerate(all_hands_data):
-                print(f"Hand {handNo + 1} Landmarks:", landmarks)
-                print(f"Hand {handNo + 1} Bounding Box:", bbox)
+        # Check if too many frames have two hands
+        if detector.check_hand_threshold():
+            cap.release()
+            cv2.destroyAllWindows()
+            return
 
         # Calculate FPS
         ctime = time.time()
@@ -123,15 +111,17 @@ def main(video_path):
         # Display FPS on the frame
         cv2.putText(frame, f"FPS: {int(fps)}", (10, 70), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3)
 
+
         cv2.imshow('frame', frame)
 
-        # Close window on pressing 'q'
+        # Exit on pressing 'q'
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):  # Check if 'q' was pressed to quit
+        if key == ord('q'):
             print("Closing window...")
-            cap.release()
-            cv2.destroyAllWindows()
-            return
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
