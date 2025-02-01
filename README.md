@@ -8,3 +8,7 @@
 `Landmark_ID` : id of the node (see picture from media pipe) identifies part on the hand
 
 `Normalized_X` `Normalized_Y` are the normalized positions of each node (-1,1 on the x-y plane)
+
+
+https://library.csi.cuny.edu/asl/databases
+

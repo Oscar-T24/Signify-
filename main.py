@@ -201,7 +201,3 @@ class LoadCV:
         """Release the camera and close OpenCV windows."""
         self.cap.release()
         cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    LoadCV.main()
