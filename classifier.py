@@ -115,7 +115,7 @@ class Homepage(SceneBase):
         super().__init__(scene_manager)
         self.video_feed = video_feed
         self.media_button = Button(30, 140, 400, 100, (255, 100, 255), "Train from media")
-        self.camera_button = Button(30, 30, 400, 100, (255, 100, 255), "Open Camera")
+        self.camera_button = Button(30, 300,400, 100, (255, 100, 255), "Open Camera")
 
     def ProcessInput(self, events, pressed_keys):
         for event in events:
@@ -142,8 +142,11 @@ class VideoRecord(SceneBase):
     def __init__(self, scene_manager, video_feed):
         super().__init__(scene_manager)
         self.video_feed = video_feed
-        self.record_button = Button(30, 30, 400, 100, (255, 100, 255), "Record")
-        self.home = Button(30, 100, 400, 100, (255, 100, 255), "Home")
+        self.record_button = Button(400, 30, 400, 100, (120, 100, 255), "Record")
+        self.snapshot = Button(800, 30, 400, 100, (120, 100, 255), "Take a snapshot")
+        self.home = Button(90, 30, 400, 100, (120, 100, 255), "Home")
+        self.counter = 0
+        self.recording_started = False
 
     def ProcessInput(self, events, pressed_keys):
         for event in events:
@@ -159,15 +162,42 @@ class VideoRecord(SceneBase):
         frame_surface = self.video_feed.get_frame()
         self.record_button.process()
         self.home.process()
+        self.snapshot.process()
+
+        if self.snapshot.is_clicked()[0]:
+            res = self.video_feed.record(None)
+
+            if res is None: # nothing detected
+                self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
+                text_surface = pygame.font.SysFont('Arial', 40).render("No hand was detected ! Try again", True,
+                                                                   (100, 100, 100))
+                screen.blit(text_surface, (100, 100))
+
+        if self.record_button.is_clicked()[0]:
+
+            res = self.video_feed.record(self.counter)
+            if res is None:  # Recording finished
+                self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
+                text_surface = pygame.font.SysFont('Arial', 40).render("No hand was detected ! Try again", True,
+                                                                       (100, 100, 100))
+                screen.blit(text_surface, (100, 100))
+                self.recording_started = False
+                return
+
+            if self.recording_started:
+                self.recording_started = False
+            else:
+                self.recording_started = True
+                self.counter = 0
+
+            self.counter += 1
+
+
         if frame_surface:
             screen.blit(frame_surface, (320, 120))  # Position the video inside Pygame window
 
        # text_surface = pygame.font.SysFont('Arial', 40).render(str(self.record_button.is_clicked()), True, (100, 100, 100))
        # screen.blit(text_surface, (100, 100))
-
-        if self.record_button.is_clicked()[0]:
-            # start recording
-            self.video_feed.record(2)
 
         if self.home.is_clicked()[0]:
             self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))

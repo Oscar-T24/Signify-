@@ -125,8 +125,12 @@ class LoadCV:
         frame_surface = pygame.surfarray.make_surface(frame)
         return frame_surface
 
-    def record(self,counter:int)->pd.DataFrame:
-        '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x,y are normalised coordinates
+    import pandas as pd
+
+    import pandas as pd
+
+    def record(self, counter: int = None) -> pd.DataFrame:
+        '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
         for ONE frame
         '''
         ret, frame = self.cap.read()
@@ -134,28 +138,60 @@ class LoadCV:
             return None
 
         normalized_data = []
-
-        if len(self.detector.findPosition(frame)) == 0:
-            "no hand has been identified"
-            return None
-
         landmarks, bbox = self.detector.findPosition(frame)
 
+        if bbox == []:
+            print("No hand detected")
+            return None
+
+        # Read the CSV file to determine the last frame ID
+        try:
+            df_existing = pd.read_csv('hand_landmarks_data.csv')
+            last_frame = df_existing['Frame'].iloc[-1]  # Get the last Frame ID
+        except (pd.errors.EmptyDataError, FileNotFoundError):
+            last_frame = 0  # If no data exists, start from 0
+
+        # Determine the new frame ID
+        if counter is None:  # Snapshot mode
+            # If the last frame ID is a number, increment it by 1; else use 1 as the first frame ID
+            if isinstance(last_frame, int) and last_frame >= 0:
+                new_frame_id = last_frame + 1
+            else:
+                new_frame_id = 1  # If last frame ID was in format <ID>-<counter>, reset to 1
+        elif counter == 0:  # New recording or reset
+            # If the last frame is in <ID>-<counter> format, increment <ID>
+            if isinstance(last_frame, str) and '-' in last_frame:
+                last_id, _ = last_frame.split('-')
+                new_frame_id = f"{int(last_id) + 1}-0"
+            else:
+                # If last frame ID is just a number, increment and start recording with counter 0
+                new_frame_id = f"{last_frame + 1}-0"
+        else:  # Recording mode
+            # If the last frame is in <ID>-<counter> format, extract <ID> and add the counter
+            if isinstance(last_frame, str) and '-' in last_frame:
+                last_id, _ = last_frame.split('-')
+                new_frame_id = f"{last_id}-{counter}"
+            else:
+                # Otherwise, use the counter directly
+                new_frame_id = f"{last_frame}-{counter}"
+
+        # Process the landmarks for the current frame
         for lm_pos in landmarks:
-            xmin, ymin, xmax, ymax = bbox # bounding box coordinates
+            xmin, ymin, xmax, ymax = bbox  # bounding box coordinates
             normalized_x = (lm_pos[1] - xmin) / (xmax - xmin)
             normalized_y = (lm_pos[2] - ymin) / (ymax - ymin)
 
-            normalized_data.append([counter, lm_pos[0], normalized_x, normalized_y])
+            normalized_data.append([new_frame_id, lm_pos[0], normalized_x, normalized_y])
 
+        # Create a DataFrame for the current frame
         df = pd.DataFrame(normalized_data, columns=['Frame', 'Landmark_ID', 'Normalized_X', 'Normalized_Y'])
 
+        # Save the DataFrame to CSV, appending new data without header if file exists
         df.to_csv('hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('hand_landmarks_data.csv'),
                   index=False)
 
-        print("RECORDED")
+        print(f"RECORDED with Frame ID: {new_frame_id}")
         return df
-
 
     def release(self):
         """Release the camera and close OpenCV windows."""
