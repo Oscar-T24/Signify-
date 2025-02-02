@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 r.seed(1000)
 
 #Useful constants
-LEARNING_RATE = 0.3
-TESTFILE = "C:/Users/admin/OneDrive/Documents/Coding_Project/python - Copy/MachineLearning/NeuralNetwork/nb_data/46inputs_bis.csv"
+LEARNING_RATE = 0.1
+TESTFILE = "46inputs_bis.csv"
 
 #   #   #   #   #
 
