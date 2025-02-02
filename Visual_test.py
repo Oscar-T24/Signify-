@@ -89,12 +89,14 @@ while True:
                 cx, cy = landmark.x , landmark.y
                 #print(cx,cy)
                 landmark_list += [cx,cy]
+            #print(landmark_list)
             lastFiveFrames.add(np.copy(landmark_list))
             prediction = model.predict(np.expand_dims(lastFiveFrames.arr, axis=0),verbose = 0).tolist()[0]
             if (max(prediction) > 0.97 and prediction.index(max(prediction))!= 0):
                 if lastword != INT_TO_WORD[prediction.index(max(prediction))]:
                     lastword =INT_TO_WORD[prediction.index(max(prediction))]
-                    speech(lastword)
+                    #speech(lastword)
+                    print("WORD",lastword) # for demo, because get an error with text to speech (playsound = lambda sound, block = True: _playsoundAnotherPython('/System/Library/Frameworks/Python.framework/Versions/2.7/bin/python', sound, block, macOS = True))
 
             #print(landmark_list)
                 
