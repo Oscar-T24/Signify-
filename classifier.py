@@ -76,7 +76,7 @@ class OutputFrame:
     def __init__(self, x, y, width, height, color=(100, 100, 100)):
         self.text = ""
         self.font = pygame.font.Font(None, 36)
-        self.color = color
+        self.color = (211, 199, 185)
         self.x = x
         self.y = y
         self.width = width
@@ -225,7 +225,7 @@ class Homepage(SceneBase):
                 self.SwitchToScene(VideoRecord(self.scene_manager, self.video_feed))
 
     def Render(self, screen):
-        screen.fill((245, 245, 245))  # A light gray background for a clean look
+        screen.fill((211, 199, 185))  # A light gray background for a clean look
         self.media_button.process()
         self.camera_button.process()
         self.recognition_button.process()
@@ -259,7 +259,7 @@ class FaceRecognition(SceneBase):
             self.textbox.handle_event(event)
 
     def Render(self, screen):
-        screen.fill((255, 255, 255))  # White background
+        screen.fill((211, 199, 185))  # White background
         self.home.process()
         self.toggle.process()
 
@@ -316,7 +316,7 @@ class LiveDemo(SceneBase):
                 self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
 
     def Render(self, screen):
-        screen.fill((255, 255, 255))
+        screen.fill((211, 199, 185))
         frame_surface = self.video_feed.get_frame()
 
         if frame_surface:
@@ -360,7 +360,7 @@ class VideoRecord(SceneBase):
         self.message = ""
 
     def Render(self, screen):
-        screen.fill((255, 255, 255))
+        screen.fill((211, 199, 185))
         frame_surface = self.video_feed.get_frame()
         self.record_button.process()
         self.home.process()
