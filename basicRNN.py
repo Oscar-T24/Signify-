@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 r.seed(1000)
 
 #Useful constants
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.003
 TESTFILE = "46inputs_bis.csv"
 
 #   #   #   #   #
@@ -414,4 +414,4 @@ ACTIVATION = {"ReLU" : (ReLU,dReLU),"Sigmoid": (sigmoid, dsigmoid), "Softmax" : 
 # Test
 
 a = RNN([46,72,10],output = "Sigmoid")
-a.train(TESTFILE,15,150)
+a.train(TESTFILE,15,300)
