@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 r.seed(1000)
 
 #Useful constants
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.001
 TESTFILE = "46inputs_bis.csv"
 
 #   #   #   #   #
@@ -19,18 +19,19 @@ class Neuron :
         # weights
         scale = sqrt(2.0 / parentnb) if parentnb > 0 else 0.1
         self.weights = [r.uniform(-scale, scale) for _ in range(parentnb)]
-        self.mw = [r.uniform(-scale, scale) for _ in range(memorynb)]
+        self.mw = sqrt(2.0 / parentnb) if parentnb > 0 else 0.1
+        self.memory = 0        # memorized value
         self.bias = 0             #create a random bias to add on top of weights
         self.memiter = 0
         # forward pass
         self.z = 0
         self.a = 0
-        self.memory = [0 for i in range(memorynb)]       #list of memorized values
+        
 
         # backpropagation
         self.error = 0      #error value used to compute gradient
         self.gw = []        #gradient of weights
-        self.gmw = []        #gradient of memory weights
+        self.gmw = 0        #gradient of memory weights
         self.gb = 0         #gradient of bias
         self.data = {'Gw':[],'Gb':[],'Gmw': []}      #dic in which gradients will be saved, to compute the average and substract it to the weight and bias
 
@@ -41,8 +42,8 @@ class Neuron :
         for i in range(parentlayer.nb):
             self.z += self.weights[i] * parentlayer.nodes[i].a
         self.z += self.bias
-        for i in range(len(self.mw)):
-            self.z += self.memory[i] * self.mw[i]
+        
+        self.z += self.memory * self.mw
         return self.z
     
     def geta(self,function,allx = None):
@@ -51,7 +52,7 @@ class Neuron :
             self.a = function(self.z,allx)
             return function(self.z,allx)
         self.a = function(self.z)
-        self.addMemory()
+        self.memory = self.a
         return function(self.z)
 
     
@@ -82,20 +83,17 @@ class Neuron :
                      else -max_grad_norm
                 )
 
-        # Clip memory weight gradients
-        for i in range(len(self.mw)):
-            if abs(self.data['Gmw'][-1][i]) > max_grad_norm:
-                self.data['Gmw'][-1][i] = (
-                    max_grad_norm if self.data['Gmw'][-1][i] > 0 
-                    else -max_grad_norm
-                )
-    
+        if abs(self.gb) > max_grad_norm:
+            self.gmw = max_grad_norm if self.gmw > 0 else -max_grad_norm
+
+
+            
         # Update weights and biases
         self.bias -= LEARNING_RATE * mean(self.data['Gb'])
         for i in range(len(self.weights)):
             self.weights[i] -= LEARNING_RATE * nestedmean(self.data['Gw'], i)
-        for i in range(len(self.mw)):
-            self.mw[i] -= LEARNING_RATE * nestedmean(self.data['Gmw'], i)
+    
+        self.mw -= LEARNING_RATE * mean(self.data['Gmw'])
 
         # Reset gradients
         self.data = {'Gw': [], 'Gb': [], 'Gmw': []}
@@ -183,8 +181,7 @@ class Layer :
 
     def delAllMemory(self):
         for node in self.nodes :
-            for i in range(len(node.memory)):
-                node.memory[i] = 0
+            node.memory = 0
         if self.childlayer != None :
             self.childlayer.delAllMemory()
 
@@ -196,12 +193,14 @@ class Layer :
         for i in range(self.nb):    # repeat for all nodes of layer
             currnode = self.nodes[i]
             currnode.gw = []        #clear weight gradient list
-            currnode.gmw = []
+            currnode.gmw = 0
 
             ##### compute error of node #####
             if self.childlayer == None: # if it is the output layer
-                currnode.error  = (currnode.a - yArr[i])#*self.aderivative(currnode.z,self.getNodez()) #2(a - y) * dsigmoid
-                
+                if self.afunction == softmax : 
+                    currnode.error  = (currnode.a - yArr[i])#*self.aderivative(currnode.z,self.getNodez()) #2(a - y) * dsigmoid
+                else : 
+                    currnode.error  = 2 * (currnode.a - yArr[i])*self.aderivative(currnode.z,self.getNodez()) #2(a - y) * dsigmoid
             else :
                 currnode.error = 0
                 for node in self.childlayer.nodes :
@@ -215,12 +214,11 @@ class Layer :
             for j in range(self.parentlayer.nb): # create the list of gradient of w on all nodes of the layer
                 currnode.gw.append(self.parentlayer.nodes[j].a * currnode.error)
                 
-            for j in range(len(currnode.mw)):
-                currnode.gmw.append(currnode.memory[j] * currnode.error) # compute Gradient for memory weight
-                
+            currnode.gmw= currnode.memory * currnode.error # compute Gradient for memory weight
+            
             currnode.data['Gw'].append(deepcopy(currnode.gw))
             currnode.data['Gb'].append(currnode.gb)
-            currnode.data['Gmw'].append(deepcopy(currnode.gmw))
+            currnode.data['Gmw'].append(currnode.gmw)
             
             if self.parentlayer.parentlayer != None :
                 self.parentlayer.setAllGradient() # recurrence, repeat the process to the parent layer
@@ -240,22 +238,22 @@ class Layer :
 
 class RNN:
 
-    def __init__(self,neuronlist,memory, hidden = "ReLU", output = "Softmax"):
+    def __init__(self,neuronlist, hidden = "ReLU", output = "Softmax"):
         """initialize a Recursive Neural Network
             neuronlist : list of integers, representing each layer and the nb of neurons it has
             memory : nb of memory in a neuron"""
         self.head = None    # input layer
         self.tail = None    # output layer
         self.size = 0       # nb of layers
-        self.memory = memory # memory : nb of inputs in a sequence 
+        #self.memory = memory # memory : nb of inputs in a sequence 
         for nb in neuronlist :
-            self.add(Layer(None,None,nb,ACTIVATION[hidden][0],ACTIVATION[hidden][1]),memory)
+            self.add(Layer(None,None,nb,ACTIVATION[hidden][0],ACTIVATION[hidden][1]))
         self.tail.updateNodes(0)
         self.tail.afunction = ACTIVATION[output][0]
         self.tail.aderivative = ACTIVATION[output][1]
 
         
-    def add(self,l,memory):
+    def add(self,l):
         """add a layer to the Neural network, with memory"""
         if self.size == 0 :
             l.updateNodes(0)
@@ -263,7 +261,7 @@ class RNN:
             self.tail = self.head
         else :
             l.parentlayer = self.tail
-            l.updateNodes(memory)
+            l.updateNodes(1)
             self.tail.childlayer = l
             self.tail = l
         self.size +=1
@@ -348,12 +346,12 @@ def dsoftmax(x,allx):
     #return softmax(x,allx)*(1-softmax(x,allx))
 def ReLU(x):
     if x<0 :
-        return 0
+        return 0.01*x
     else :
         return x
 def dReLU(x) :
     if x<0 :
-        return 0
+        return 0.01
     else :
         return 1
 def deepcopy(l):
@@ -415,5 +413,5 @@ ACTIVATION = {"ReLU" : (ReLU,dReLU),"Sigmoid": (sigmoid, dsigmoid), "Softmax" : 
 
 # Test
 
-a = RNN([46,64,24,10],1)
-a.train(TESTFILE,15,50)
+a = RNN([46,72,10],output = "Sigmoid")
+a.train(TESTFILE,15,150)
