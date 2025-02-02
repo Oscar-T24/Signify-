@@ -68,12 +68,37 @@ class Neuron :
         
     def update(self):
         """update weights and bias based on gradient"""
-        self.bias -= LEARNING_RATE * mean(self.data['Gb'])      # add mean negative gradient, for gradient descent   
+        max_grad_norm = 1.0  # Threshold for clipping
+
+        # Clip bias gradient
+        if abs(self.gb) > max_grad_norm:
+            self.gb = max_grad_norm if self.gb > 0 else -max_grad_norm
+
+        # Clip weight gradients
         for i in range(len(self.weights)):
-            self.weights[i] -= LEARNING_RATE * nestedmean(self.data['Gw'],i)
+            if abs(self.data['Gw'][-1][i]) > max_grad_norm:
+                self.data['Gw'][-1][i] = (
+                    max_grad_norm if self.data['Gw'][-1][i] > 0 
+                     else -max_grad_norm
+                )
+
+        # Clip memory weight gradients
         for i in range(len(self.mw)):
-            self.mw[i] -= LEARNING_RATE * nestedmean(self.data['Gmw'],i)
-        self.data = {'Gw':[],'Gb':[],'Gmw' : []}
+            if abs(self.data['Gmw'][-1][i]) > max_grad_norm:
+                self.data['Gmw'][-1][i] = (
+                    max_grad_norm if self.data['Gmw'][-1][i] > 0 
+                    else -max_grad_norm
+                )
+    
+        # Update weights and biases
+        self.bias -= LEARNING_RATE * mean(self.data['Gb'])
+        for i in range(len(self.weights)):
+            self.weights[i] -= LEARNING_RATE * nestedmean(self.data['Gw'], i)
+        for i in range(len(self.mw)):
+            self.mw[i] -= LEARNING_RATE * nestedmean(self.data['Gmw'], i)
+
+        # Reset gradients
+        self.data = {'Gw': [], 'Gb': [], 'Gmw': []}
 
 
 
@@ -175,7 +200,7 @@ class Layer :
 
             ##### compute error of node #####
             if self.childlayer == None: # if it is the output layer
-                currnode.error  = 2*(currnode.a - yArr[i])*self.aderivative(currnode.z,self.getNodez()) #2(a - y) * dsigmoid
+                currnode.error  = (currnode.a - yArr[i])#*self.aderivative(currnode.z,self.getNodez()) #2(a - y) * dsigmoid
                 
             else :
                 currnode.error = 0
@@ -264,6 +289,7 @@ class RNN:
         cost = 0
         
         for case in sample:
+            self.head.delAllMemory()
             expectedOutput = case.output.index(1)
             #print(case)
             for frame in case.data : 
@@ -274,7 +300,6 @@ class RNN:
                     cost+= ((self.tail.nodes[i].a - case.output[i])**2 )/len(case.data)  # cost function : sum of square of difference of results
                 outputlayer.setAllGradient(case.output)         # backpropagate
             print("expected : " + str(expectedOutput)+" / actual : "+ str(actualOutput) + " / certitude :" + str(max(outputa)))
-        self.head.delAllMemory()
         self.head.updatewb()                            # update weights and bias after training
         print("average cost : "+ str(cost/(len(sample))))
         return cost/len(sample)
@@ -319,7 +344,7 @@ def softmax(x, allx):
     sum_exp = sum(exp_x)
     return exp(x) / sum_exp
 def dsoftmax(x,allx):
-    return 0.5
+    return softmax(x,allx)*(1-softmax(x,allx))
     #return softmax(x,allx)*(1-softmax(x,allx))
 def ReLU(x):
     if x<0 :
