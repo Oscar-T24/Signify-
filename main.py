@@ -1,18 +1,16 @@
 import cv2
-import mediapipe as mp
 import time
-import math as math
 import pygame
-import numpy as np
 import sys
 import pandas as pd
 import numpy as np
-
 import cv2
 import mediapipe as mp
 import math
 from tensorflow import keras
 from tensorflow.keras import layers
+from deepface import DeepFace
+import os
 
 class Queue:
     def __init__(self,size):
@@ -326,6 +324,72 @@ class LoadCV:
 
         self.i += 1
         return self.lastword
+
+    def save_snapshot(self,name):
+        """Captures a frame from OpenCV and saves it as a PNG file."""
+        ret, frame = self.cap.read()
+
+        if ret is None:
+            return None
+
+        # Save the snapshot image
+        snapshot_filename = f"{name}.png"
+        cv2.imwrite(snapshot_filename, frame)
+        print(f"Snapshot saved as {snapshot_filename}")
+
+        return snapshot_filename
+
+    def recognize(self):
+
+        FACES = {}
+
+        for file_path in os.listdir("img/"):
+            if file_path.endswith((".jpg", ".png", ".jpeg")):
+                name = os.path.splitext(file_path)[0].capitalize()
+                FACES[f"img/{file_path}"] = name
+        spam = 0
+
+        ret, frame = self.cap.read()
+        if not ret:
+            return
+
+        h, w = frame.shape[:2]
+        blob = cv2.dnn.blobFromImage(frame, scalefactor=1.0, size=(300, 300),
+                                     mean=(104.0, 177.0, 123.0), swapRB=False, crop=False)
+
+        net = cv2.dnn.readNetFromCaffe(
+            "weights/deploy.prototxt", "weights/res10_300x300_ssd_iter_140000.caffemodel"
+        )
+
+        net.setInput(blob)
+        detections = net.forward()
+
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+
+            if confidence > 0.5:
+                box = detections[0, 0, i, 3:7] * [w, h, w, h]
+                x, y, x1, y1 = box.astype("int")
+
+                cv2.rectangle(frame, (x, y), (x1, y1), (0, 255, 0), 2)
+
+                dfs = DeepFace.find(
+                    img_path=frame,
+                    db_path="img/",
+                    enforce_detection=False,
+                    silent=True
+                )
+                try:
+                    text = FACES[dfs[0]['identity'][0]]
+                    if spam >= 10:
+                        spam = 0
+                        return text
+                        #speech(text + " is in front of you")
+
+                except:
+                    pass
+                spam += 1
+
 
 
 
