@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 r.seed(1000)
 
 #Useful constants
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.01
 MIN_LEARNING_RATE = 0.001
-DECAY_RATE = 0.99  # Reduce by 1% per sample
+DECAY = 0.995  # Reduce by 0.5% per sample
 TESTFILE = "46inputs_bis.csv"
 
 #   #   #   #   #
@@ -276,6 +276,7 @@ class RNN:
             datafile (str) : path to data
             samplesize (int) : size of each sample (0 if the whole dataset is a single sample)
             samplenb (int) : number of sample """
+        global LEARNING_RATE
         data = processData(datafile)    # process the csv file to make it usable
         cost = []
         for i in range( samplenb):      # repeat for the desired amount of samples
