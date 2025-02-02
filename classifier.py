@@ -1,6 +1,6 @@
 import pygame
 import sys
-from main import LoadCV, HandTrackingDynamic
+from main import LoadCV, HandTrackingDynamic, analyze
 
 # Global flag for video feed visibility
 show_video = False

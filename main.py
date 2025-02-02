@@ -146,7 +146,9 @@ class LoadCV:
         return frame_surface
 
 
+
     def record(self, counter: int = None,training=False):
+
         '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
         for ONE frame
         '''
@@ -164,50 +166,55 @@ class LoadCV:
 
         # Read the CSV file to determine the last frame ID
         try:
-            df_existing = pd.read_csv('hand_landmarks_data.csv')
+            df_existing = pd.read_csv('new_hand_landmarks_data.csv')
             last_frame = df_existing['Frame'].iloc[-1]  # Get the last Frame ID
         except (pd.errors.EmptyDataError, FileNotFoundError,IndexError):
             last_frame = 0  # If no data exists, start from 0
-
+        new_frame_id = last_frame+1
         # Determine the new frame ID
-        if counter is None:  # Snapshot mode
-            # If the last frame ID is in <ID>-<counter> format, increment <ID>
-            if isinstance(last_frame, str) and '-' in last_frame:
-                last_id, _ = last_frame.split('-')
-                new_frame_id = f"{int(last_id) + 1}-0"
-            else:
-                # If last frame ID is just a number, increment it and use counter 0 for the snapshot
-                new_frame_id = last_frame + 1 if isinstance(last_frame, int) else 1
-        elif counter == 0:  # New recording or reset
+        #if counter is None:  # Snapshot mode
+        #    # If the last frame ID is in <ID>-<counter> format, increment <ID>
+        #    if isinstance(last_frame, str) and '-' in last_frame:
+        #        last_id, _ = last_frame.split('-')
+        #        new_frame_id = f"{int(last_id) + 1}-0"
+        #    else:
+        #        # If last frame ID is just a number, increment it and use counter 0 for the snapshot
+        #        new_frame_id = last_frame + 1 if isinstance(last_frame, int) else 1
+        #elif counter == 0:  # New recording or reset
             # If the last frame is in <ID>-<counter> format, increment <ID>
-            if isinstance(last_frame, str) and '-' in last_frame:
-                last_id, _ = last_frame.split('-')
-                new_frame_id = f"{int(last_id) + 1}-0"
-            else:
+        #    if isinstance(last_frame, str) and '-' in last_frame:
+        #        last_id, _ = last_frame.split('-')
+        #        new_frame_id = f"{int(last_id) + 1}-0"
+        #    else:
                 # If last frame ID is just a number, increment and start recording with counter 0
-                new_frame_id = f"{last_frame + 1}-0"
-        else:  # Recording mode
+        #        new_frame_id = f"{last_frame + 1}-0"
+        #else:  # Recording mode
             # If the last frame is in <ID>-<counter> format, extract <ID> and add the counter
-            if isinstance(last_frame, str) and '-' in last_frame:
-                last_id, _ = last_frame.split('-')
-                new_frame_id = f"{last_id}-{counter}"
-            else:
+        #    if isinstance(last_frame, str) and '-' in last_frame:
+        #        last_id, _ = last_frame.split('-')
+        #        new_frame_id = f"{last_id}-{counter}"
+        #    else:
                 # Otherwise, use the counter directly
-                new_frame_id = f"{last_frame}-{counter}"
+        #        new_frame_id = f"{last_frame}-{counter}"
 
         # Process the landmarks for the current frame
+        normalized_landmarks = []
         for lm_pos in landmarks:
             xmin, ymin, xmax, ymax = bbox  # bounding box coordinates
             normalized_x = (lm_pos[1] - xmin) / (xmax - xmin)
             normalized_y = (lm_pos[2] - ymin) / (ymax - ymin)
 
-            normalized_data.append([new_frame_id, lm_pos[0], normalized_x, normalized_y])
+            normalized_landmarks+=[normalized_x, normalized_y]
+        normalized_data.append([new_frame_id] + normalized_landmarks)
 
         # Create a DataFrame for the current frame
-        df = pd.DataFrame(normalized_data, columns=['Frame', 'Landmark_ID', 'Normalized_X', 'Normalized_Y'])
-
-        # Save the DataFrame to CSV, appending new data without header if file exists
-        df.to_csv('hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('hand_landmarks_data.csv'),
+        col = ['Frame'] 
+        for i in range(len(landmarks)):
+            col += ['x'+str(i) ,'y'+str(i)]
+        df = pd.DataFrame(normalized_data, columns=col)
+        if capture :
+            # Save the DataFrame to CSV, appending new data without header if file exists
+            df.to_csv('new_hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('new_hand_landmarks_data.csv'),
                   index=False)
 
         if counter is None:
@@ -237,7 +244,13 @@ class LoadCV:
 
 
 def analyze(video_path):
+
+        """Processes the input video frame-by-frame and records hand landmarks.
+            Xiàn zài wǒ yǒu bing chilling Wǒ hěn xǐ huān bing chilling Dàn shì
+            “sù dù yǔ jī qíng jiǔ” bǐ bing chilling"""
+
         """Processes the input video frame-by-frame and records hand landmarks."""
+
 
         video = LoadCV(video_path)
 
