@@ -9,7 +9,8 @@ import mediapipe as mp
 import math
 from tensorflow import keras
 from tensorflow.keras import layers
-from deepface import DeepFace
+#from deepface import DeepFace
+import subprocess
 import os
 
 class Queue:
@@ -341,6 +342,18 @@ class LoadCV:
 
     def recognize(self):
 
+        result = subprocess.run(
+            ["python", "Face_Recognition.py"],  # Replace with the actual script filename
+            text=True,
+            capture_output=True
+        )
+
+        detected_name = result.stdout.strip()
+
+        if detected_name:
+            return detected_name
+        return None
+        """
         FACES = {}
 
         for file_path in os.listdir("img/"):
@@ -389,6 +402,7 @@ class LoadCV:
                 except:
                     pass
                 spam += 1
+        """
 
 
 
