@@ -419,4 +419,4 @@ ACTIVATION = {"ReLU" : (ReLU,dReLU),"Sigmoid": (sigmoid, dsigmoid), "Softmax" : 
 # Test
 
 a = RNN([46,72,10],output = "Sigmoid")
-a.train(TESTFILE,15,300)
+a.train(TESTFILE,15,700)
