@@ -86,7 +86,8 @@ while True:
             landmark_list = []
             for id, landmark in enumerate(hand_landmarks.landmark):
                 height, width, _ = frame.shape
-                cx, cy = landmark.x , landmark.y 
+                cx, cy = landmark.x , landmark.y
+                print(cx,cy)
                 landmark_list += [cx,cy]
             lastFiveFrames.add(np.copy(landmark_list))
             prediction = model.predict(np.expand_dims(lastFiveFrames.arr, axis=0),verbose = 0).tolist()[0]
@@ -98,7 +99,7 @@ while True:
             #print(landmark_list)
                 
                 
-        i +=1
+        i += 1
             
     # Show the resulting frame
     cv2.imshow("Hand Landmarks", frame)
