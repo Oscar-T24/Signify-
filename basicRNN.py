@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 r.seed(1000)
 
 #Useful constants
-LEARNING_RATE = 0.003
+LEARNING_RATE = 0.005
+MIN_LEARNING_RATE = 0.001
+DECAY_RATE = 0.99  # Reduce by 1% per sample
 TESTFILE = "46inputs_bis.csv"
 
 #   #   #   #   #
@@ -27,7 +29,7 @@ class Neuron :
         self.z = 0
         self.a = 0
         
-
+    
         # backpropagation
         self.error = 0      #error value used to compute gradient
         self.gw = []        #gradient of weights
@@ -280,6 +282,7 @@ class RNN:
             sampleToUse = sample(samplesize,data)   # create random samples of desired size
             
             cost.append(self.sampleTrain(sampleToUse))
+            LEARNING_RATE = max(MIN_LEARNING_RATE,LEARNING_RATE * DECAY)
         plt.plot( [i for i in range(len(cost))],cost)
         plt.show()
     def sampleTrain(self,sample):
@@ -297,7 +300,7 @@ class RNN:
                 for i in range(self.tail.nb):
                     cost+= ((self.tail.nodes[i].a - case.output[i])**2 )/len(case.data)  # cost function : sum of square of difference of results
                 outputlayer.setAllGradient(case.output)         # backpropagate
-            print("expected : " + str(expectedOutput)+" / actual : "+ str(actualOutput) + " / certitude :" + str(max(outputa)))
+            #print("expected : " + str(expectedOutput)+" / actual : "+ str(actualOutput) + " / certitude :" + str(max(outputa)))
         self.head.updatewb()                            # update weights and bias after training
         print("average cost : "+ str(cost/(len(sample))))
         return cost/len(sample)
@@ -396,6 +399,7 @@ def processData(FILE):
         for i in range(len(raw_vid)):
             video_frames.append(list(raw_vid.iloc[i][1:-1]))
         dataset.append(Example(video_frames,int(raw_vid.iloc[0][-1])))
+        
     
     return dataset
 
