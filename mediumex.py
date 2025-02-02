@@ -2,6 +2,20 @@ import cv2
 import mediapipe as mp
 import time
 import math
+import pandas as pd
+from pathlib import Path
+import sys
+import sys
+import os
+import logging
+
+# Redirect stderr
+sys.stderr = open(os.devnull, 'w')
+
+# Set the logging level to ERROR for TensorFlow and Mediapipe
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+logging.getLogger('cv2').setLevel(logging.ERROR)
 
 
 class HandTrackingDynamic:
@@ -16,6 +30,10 @@ class HandTrackingDynamic:
         self.mpDraw = mp.solutions.drawing_utils
         self.tipIds = [4, 8, 12, 16, 20]
 
+        self.frame_count = 0
+        self.two_hand_count = 0
+        self.results = None
+
     def findFingers(self, frame, draw=True):
         imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(imgRGB)
@@ -23,11 +41,10 @@ class HandTrackingDynamic:
             for handLms in self.results.multi_hand_landmarks:
                 if draw:
                     self.mpDraw.draw_landmarks(frame, handLms, self.handsMp.HAND_CONNECTIONS)
-
         return frame
 
     def findPosition(self, frame, draw=True):
-        all_landmarks = []  # List to store landmarks for all detected hands
+        all_landmarks = []
         if self.results.multi_hand_landmarks:
             for handNo, handLms in enumerate(self.results.multi_hand_landmarks):
                 xList = []
@@ -47,49 +64,19 @@ class HandTrackingDynamic:
                 xmin, xmax = min(xList), max(xList)
                 ymin, ymax = min(yList), max(yList)
                 bbox = xmin, ymin, xmax, ymax
-                print(f"Hand {handNo + 1} Keypoint")
-                print(bbox)
-                if draw:
-                    cv2.rectangle(frame, (xmin - 20, ymin - 20), (xmax + 20, ymax + 20), (0, 255, 0), 2)
-
-                all_landmarks.append((handData, bbox))  # Store data for this hand
-
+                all_landmarks.append((handData, bbox))
         return all_landmarks
 
-    def findFingerUp(self):
-        fingers = []
-
-        if self.lmsList[self.tipIds[0]][1] > self.lmsList[self.tipIds[0] - 1][1]:
-            fingers.append(1)
-        else:
-            fingers.append(0)
-
-        for id in range(1, 5):
-            if self.lmsList[self.tipIds[id]][2] < self.lmsList[self.tipIds[id] - 2][2]:
-                fingers.append(1)
-            else:
-                fingers.append(0)
-
-        return fingers
-
-    def findDistance(self, p1, p2, frame, draw=True, r=15, t=3):
-        x1, y1 = self.lmsList[p1][1:]
-        x2, y2 = self.lmsList[p2][1:]
-        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-
-        if draw:
-            cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 255), t)
-            cv2.circle(frame, (x1, y1), r, (255, 0, 255), cv2.FILLED)
-            cv2.circle(frame, (x2, y2), r, (255, 0, 0), cv2.FILLED)
-            cv2.circle(frame, (cx, cy), r, (0, 0.255), cv2.FILLED)
-        len = math.hypot(x2 - x1, y2 - y1)
-
-        return len, frame, [x1, y1, x2, y2, cx, cy]
+    def get_two_hand_percentage(self):
+        if self.frame_count == 0:
+            return 0
+        return (self.two_hand_count / self.frame_count) * 100
 
 
-def main(video_path):
+def main(video_path, threshold=10, name=""):
     ctime = 0
     ptime = 0
+    frame_count = 0
     cap = cv2.VideoCapture(video_path)
     detector = HandTrackingDynamic()
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -98,22 +85,42 @@ def main(video_path):
         print("Cannot open camera")
         exit()
 
+    normalized_data = []
+
     while True:
         ret, frame = cap.read()
 
         if not ret:
-            print(f"end of video {video_path}. closing window...")
+            print(f"End of video {video_path}. Closing window...")
             cap.release()
             break
 
         frame = detector.findFingers(frame)
         all_hands_data = detector.findPosition(frame)
 
-        # Process multiple hands
         if len(all_hands_data) > 0:
             for handNo, (landmarks, bbox) in enumerate(all_hands_data):
-                print(f"Hand {handNo + 1} Landmarks:", landmarks)
-                print(f"Hand {handNo + 1} Bounding Box:", bbox)
+                # Only write the first hand's data
+                if handNo == 0:  # Skip all but the first hand
+                    # Normalize and append the data for the first hand
+                    for lm_pos in landmarks:
+                        xmin, ymin, xmax, ymax = bbox
+                        normalized_x = (lm_pos[1] - xmin) / (xmax - xmin)
+                        normalized_y = (lm_pos[2] - ymin) / (ymax - ymin)
+
+                        word = name  # Placeholder for the "word" column (you can dynamically change this)
+
+                        normalized_data.append([frame_count, lm_pos[0], normalized_x, normalized_y, word])
+
+        frame_count += 1
+        detector.frame_count += 1
+        if len(all_hands_data) > 1:
+            detector.two_hand_count += 1  # Count frames with two hands
+
+        # Check if the percentage of frames with more than one hand exceeds the threshold
+        if detector.get_two_hand_percentage() > threshold:
+            print(f"Skipping video due to more than one hand detected frequently.")
+            return  # Skip this video if the threshold is exceeded
 
         # Calculate FPS
         ctime = time.time()
@@ -125,14 +132,45 @@ def main(video_path):
 
         cv2.imshow('frame', frame)
 
-        # Close window on pressing 'q'
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):  # Check if 'q' was pressed to quit
-            print("Closing window...")
-            cap.release()
-            cv2.destroyAllWindows()
-            return
+    # After video is finished, write the data to CSV only once
+    if normalized_data:
 
+        df = pd.DataFrame(normalized_data, columns=['Frame', 'Landmark_ID', 'Normalized_X', 'Normalized_Y', 'Phrase'])
+
+        # Save DataFrame to CSV, append if file exists
+        df.to_csv('hand_landmarks_data2.csv', mode='a', header=not pd.io.common.file_exists('hand_landmarks_data2.csv'),
+                  index=False)
+
+def export():
+    '''Exports the recorded hand landmarks to a Dataframe for analysis (note different formatting than csv)'''
+    df = pd.read_csv("hand_landmarks_data2.csv")
+    df_pivoted = df.pivot_table(index='Frame', columns='Landmark_ID', values=['Normalized_X', 'Normalized_Y'])
+
+    # Flatten the column multi-index (Normalized_X, Normalized_Y, Landmark_ID)
+    df_pivoted.columns = [f'{col[0]}{col[1]}' for col in df_pivoted.columns]
+
+    # Reset the index so 'Frame' becomes a column
+    df_final = df_pivoted.reset_index()
+    return df_final
 
 if __name__ == "__main__":
-    main('B_01_062.mkv')
+
+    print(export())
+    time.sleep(33333)
+
+    import logging
+
+    # Set logging to show only errors
+    logging.getLogger('tensorflow').setLevel(logging.ERROR)
+    logging.getLogger('mediapipe').setLevel(logging.ERROR)
+
+    # get the video by name and find corresponding phrase (lemma ID) in the csv
+    for video in Path("videos").rglob("*.mkv"):
+        file_name = Path(video).stem
+        file = pd.read_csv("asl_database.csv")
+        phrase = file[file['Code'] == file_name]["LemmaID"]
+        if phrase.empty:
+            print(f"NO MATCHES for {file_name}")
+            continue
+        print(phrase.iloc[0])
+        main(video, name=phrase.iloc[0])

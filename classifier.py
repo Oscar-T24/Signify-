@@ -5,6 +5,7 @@ from main import LoadCV, HandTrackingDynamic
 # Global flag for video feed visibility
 show_video = False
 import time
+import threading
 
 
 class SceneBase:
@@ -54,6 +55,37 @@ class SceneManager:
             self.current_scene.Render(screen)
 
             pygame.display.flip()  # Update display
+
+class OutputFrame:
+    '''Frame for text output from the model'''
+
+    def __init__(self, x, y, width, height, color=(100, 100, 100)):
+        self.text = ""
+        self.font = pygame.font.Font(None, 36)
+        self.color = color
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+    def process(self, screen):
+        '''Renders the text output frame with the text.'''
+
+        # Draw the background rectangle for the output frame
+        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+
+        # Create a surface with the rendered text
+        text_surface = self.font.render(self.text, True, (255, 255, 255))  # white text color
+
+        # Center the text within the frame
+        text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+
+        # Draw the text on the screen
+        screen.blit(text_surface, text_rect)
+
+    def update_text(self, new_text):
+        '''Updates the text to be displayed in the frame.'''
+        self.text = new_text
 
 
 class Button:
@@ -148,6 +180,7 @@ class VideoRecord(SceneBase):
         self.home = Button(90, 30, 400, 100, (120, 100, 255), "Home")
         self.counter = 0
         self.recording_started = False
+        self.message = ""
 
     def ProcessInput(self, events, pressed_keys):
         for event in events:
@@ -158,6 +191,8 @@ class VideoRecord(SceneBase):
     def Update(self):
         pass
 
+    def clear_message(self):
+        self.message = ""
     def Render(self, screen):
         screen.fill((255, 255, 255))  # White background
         frame_surface = self.video_feed.get_frame()
@@ -170,12 +205,11 @@ class VideoRecord(SceneBase):
 
             if res is None: # nothing detected
                 self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
-                text_surface = pygame.font.SysFont('Arial', 40).render("No hand was detected ! Try again", True,
-                                                                   (100, 100, 100))
-                screen.blit(text_surface, (100, 100))
+                self.message = "No hand detected ! Please try again"
+                threading.Timer(5, lambda: self.clear_message()).start()
 
         if self.record_button.is_clicked()[0]:
-            time.sleep(1)
+
             res = self.video_feed.record(self.counter)
 
             if self.recording_started:
@@ -190,25 +224,28 @@ class VideoRecord(SceneBase):
             res = self.video_feed.record(self.counter)
             if res is None:
                 self.video_feed.record(self.counter)
-                text_surface = pygame.font.SysFont('Arial', 40).render("No hand was detected ! Try again", True,
-                                                                       (100, 100, 100))
-                screen.blit(text_surface, (100, 100))
+                self.message = "No hand detected ! Please try again"
+                threading.Timer(5, lambda: self.clear_message()).start()
+
                 self.recording_started = False
             self.counter +=1
 
         if frame_surface:
             screen.blit(frame_surface, (320, 120))  # Position the video inside Pygame window
+            text_surface = pygame.font.SysFont('Arial', 40).render(self.message, True,
+                                                                   (100, 100, 100))
+            screen.blit(text_surface, (50, HEIGHT-50))
 
-       # text_surface = pygame.font.SysFont('Arial', 40).render(str(self.record_button.is_clicked()), True, (100, 100, 100))
-       # screen.blit(text_surface, (100, 100))
 
         if self.home.is_clicked()[0]:
             self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
 
 
-
+HEIGHT = 720
+WIDTH = 1280
 def run_game():
     pygame.init()
+
     screen = pygame.display.set_mode((1280, 720))
 
     video_feed = LoadCV()  # Video feed for the scene

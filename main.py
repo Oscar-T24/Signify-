@@ -8,6 +8,10 @@ import sys
 import pandas as pd
 import numpy as np
 
+import cv2
+import mediapipe as mp
+import math
+
 class HandTrackingDynamic:
     def __init__(self, mode=False, maxHands=2, detectionCon=0.5, trackCon=0.5):
         self.__mode__ = mode
@@ -15,13 +19,18 @@ class HandTrackingDynamic:
         self.__detectionCon__ = detectionCon
         self.__trackCon__ = trackCon
         self.handsMp = mp.solutions.hands
-        self.hands = self.handsMp.Hands()
+        self.hands = self.handsMp.Hands(max_num_hands=self.__maxHands__, min_detection_confidence=self.__detectionCon__,
+                                        min_tracking_confidence=self.__trackCon__)
         self.mpDraw = mp.solutions.drawing_utils
         self.tipIds = [4, 8, 12, 16, 20]
 
+        self.frame_count = 0
+        self.two_hand_count = 0
+        self.results = None  # Add a results attribute to store the hand landmarks results
+
     def findFingers(self, frame, draw=True):
         imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(imgRGB)
+        self.results = self.hands.process(imgRGB)  # Update results after processing the frame
         if self.results.multi_hand_landmarks:
             for handLms in self.results.multi_hand_landmarks:
                 if draw:
@@ -34,7 +43,12 @@ class HandTrackingDynamic:
         yList = []
         bbox = []
         self.lmsList = []
-        if self.results.multi_hand_landmarks:
+        if self.results and self.results.multi_hand_landmarks:  # Ensure results is not None
+            num_hands = len(self.results.multi_hand_landmarks)
+            self.frame_count += 1
+            if num_hands > 1:
+                self.two_hand_count += 1  # Count frames with two hands
+
             myHand = self.results.multi_hand_landmarks[handNo]
             for id, lm in enumerate(myHand.landmark):
 
@@ -52,6 +66,7 @@ class HandTrackingDynamic:
             if draw:
                 cv2.rectangle(frame, (xmin - 20, ymin - 20), (xmax + 20, ymax + 20),
                               (0, 255, 0), 2)
+
 
         return self.lmsList, bbox
 
@@ -82,9 +97,14 @@ class HandTrackingDynamic:
             cv2.circle(frame, (x1, y1), r, (255, 0, 255), cv2.FILLED)
             cv2.circle(frame, (x2, y2), r, (255, 0, 0), cv2.FILLED)
             cv2.circle(frame, (cx, cy), r, (0, 0.255), cv2.FILLED)
-        len = math.hypot(x2 - x1, y2 - y1)
+        length = math.hypot(x2 - x1, y2 - y1)
 
-        return len, frame, [x1, y1, x2, y2, cx, cy]
+        return length, frame, [x1, y1, x2, y2, cx, cy]
+
+    def get_two_hand_percentage(self):
+        if self.frame_count == 0:
+            return 0
+        return (self.two_hand_count / self.frame_count) * 100
 
 
 class LoadCV:
@@ -109,7 +129,7 @@ class LoadCV:
         frame = self.detector.findFingers(frame)  # Process frame with hand tracking
         lmsList = self.detector.findPosition(frame)
         #if len(lmsList) != 0:
-           # print("PSOITIONS",lmsList[0])
+        #print("PSOITIONS",lmsList[0])
 
         ctime = time.time()
         fps = 1 / (ctime - self.ptime) if self.ptime != 0 else 0
@@ -126,18 +146,19 @@ class LoadCV:
         return frame_surface
 
 
-    def record(self, counter: int = None) -> pd.DataFrame:
+    def record(self, counter: int = None,training=False):
         '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
         for ONE frame
         '''
         ret, frame = self.cap.read()
-        if not ret:
+
+        if ret is None:
             return None
 
         normalized_data = []
         landmarks, bbox = self.detector.findPosition(frame)
 
-        if bbox == []:
+        if training == False and  bbox == []:
             print("No hand detected")
             return None
 
@@ -145,7 +166,7 @@ class LoadCV:
         try:
             df_existing = pd.read_csv('hand_landmarks_data.csv')
             last_frame = df_existing['Frame'].iloc[-1]  # Get the last Frame ID
-        except (pd.errors.EmptyDataError, FileNotFoundError):
+        except (pd.errors.EmptyDataError, FileNotFoundError,IndexError):
             last_frame = 0  # If no data exists, start from 0
 
         # Determine the new frame ID
@@ -189,6 +210,11 @@ class LoadCV:
         df.to_csv('hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('hand_landmarks_data.csv'),
                   index=False)
 
+        if counter is None:
+            print("saved picture")
+
+        return df
+
     def export(self):
         '''Exports the recorded hand landmarks to a Dataframe for analysis (note different formatting than csv)'''
         file = pd.read_csv("hand_landmarks_data.csv")
@@ -208,3 +234,28 @@ class LoadCV:
         """Release the camera and close OpenCV windows."""
         self.cap.release()
         cv2.destroyAllWindows()
+
+
+def analyze(video_path):
+        """Processes the input video frame-by-frame and records hand landmarks."""
+
+        video = LoadCV(video_path)
+
+        frame_counter = 0  # Keeps track of the frame index
+
+        try:
+            while True:
+                res = video.record(counter=frame_counter,training=True)
+                # disable no hand detection
+                if res is None:
+                    print("Finished video or no hand detected.")
+                    break
+                frame_counter += 1  # Increment frame index
+                print(frame_counter)
+        except Exception as e:
+            print("End of video. Closing window...",e)
+
+        video.release()
+        cv2.destroyAllWindows()  # Release resources
+        print(f"Finished analyzing {video_path}. Recorded {frame_counter} frames.")
+
