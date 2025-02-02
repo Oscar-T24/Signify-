@@ -1,7 +1,16 @@
 import cv2
 from deepface import DeepFace
+import sys
+import os
 
-FACES = { 'img/hello.jpg' : "Hugo"}
+found = False
+
+FACES = {}
+
+for file_path in os.listdir("img/"):
+    if file_path.endswith((".jpg", ".png", ".jpeg")):
+        name = os.path.splitext(file_path)[0].capitalize()
+        FACES[f"img/{file_path}"] = name
 
 # Load pre-trained deep learning model (SSD)
 net = cv2.dnn.readNetFromCaffe(
@@ -10,7 +19,7 @@ net = cv2.dnn.readNetFromCaffe(
 
 cap = cv2.VideoCapture(0)
 
-while True:
+while not found:
     ret, frame = cap.read()
     if not ret:
         break
@@ -38,10 +47,13 @@ while True:
             silent = True
             )
             try :
-                print(FACES[dfs[0]['identity'][0]])
+                print(FACES[dfs[0]['identity'][0]], flush=True)
+                found = True
+                break
+                sys.exit()
             except :
                 pass
-    cv2.imshow("Deep Learning Face Detector", frame)
+    #cv2.imshow("Deep Learning Face Detector", frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
