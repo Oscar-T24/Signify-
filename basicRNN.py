@@ -42,8 +42,8 @@ class Neuron :
         for i in range(parentlayer.nb):
             self.z += self.weights[i] * parentlayer.nodes[i].a
         self.z += self.bias
-        
-        self.z += self.memory * self.mw
+        if parentlayer.childlayer.childlayer != None :
+            self.z += self.memory * self.mw
         return self.z
     
     def geta(self,function,allx = None):
