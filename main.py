@@ -8,6 +8,10 @@ import sys
 import pandas as pd
 import numpy as np
 
+import cv2
+import mediapipe as mp
+import math
+
 class HandTrackingDynamic:
     def __init__(self, mode=False, maxHands=2, detectionCon=0.5, trackCon=0.5):
         self.__mode__ = mode
@@ -142,7 +146,9 @@ class LoadCV:
         return frame_surface
 
 
-    def record(self, counter: int = None,training=False,capture = True):
+
+    def record(self, counter: int = None,training=False):
+
         '''Returns the hand pose in the form of a list of landmarks [id, x, y] where x, y are normalised coordinates
         for ONE frame
         '''
@@ -211,8 +217,8 @@ class LoadCV:
             df.to_csv('new_hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('new_hand_landmarks_data.csv'),
                   index=False)
 
-            if counter is None:
-                print("saved picture")
+        if counter is None:
+            print("saved picture")
 
         return df
 
@@ -238,17 +244,21 @@ class LoadCV:
 
 
 def analyze(video_path):
+
         """Processes the input video frame-by-frame and records hand landmarks.
             Xiàn zài wǒ yǒu bing chilling Wǒ hěn xǐ huān bing chilling Dàn shì
             “sù dù yǔ jī qíng jiǔ” bǐ bing chilling"""
+
+        """Processes the input video frame-by-frame and records hand landmarks."""
+
 
         video = LoadCV(video_path)
 
         frame_counter = 0  # Keeps track of the frame index
 
         try:
-            for i in range(50):
-                res = video.record(counter=frame_counter,training=True,capture = (i//10 == 1))
+            while True:
+                res = video.record(counter=frame_counter,training=True)
                 # disable no hand detection
                 if res is None:
                     print("Finished video or no hand detected.")
