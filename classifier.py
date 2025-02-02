@@ -147,6 +147,7 @@ class Button:
         return self.alreadyPressed, self.onePress
 
 
+
 class Homepage(SceneBase):
     def __init__(self, scene_manager, video_feed):
         super().__init__(scene_manager)
@@ -165,14 +166,53 @@ class Homepage(SceneBase):
         self.media_button.process()
         self.camera_button.process()
 
-        if self.camera_button.is_clicked()[0]:
+        if self.media_button.is_clicked()[0]:
             self.SwitchToScene(VideoRecord(self.scene_manager, self.video_feed))
+
+        if self.camera_button.is_clicked()[0]:
+            self.SwitchToScene(LiveDemo(self.scene_manager, self.video_feed))
+
+
 
 
     def on_open_camera(self):
         """ Open camera feed. """
         global show_video
         show_video = not show_video
+
+class LiveDemo(SceneBase):
+    def __init__(self, scene_manager, video_feed):
+        super().__init__(scene_manager)
+        self.video_feed = video_feed
+        self.home = Button(90, 30, 400, 100, (120, 100, 255), "Home")
+        self.message = ""
+        self.textbox = OutputFrame(50, HEIGHT - 100, 500, 50)
+
+    def ProcessInput(self, events, pressed_keys):
+        for event in events:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                # Switch to video recording scene
+                self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
+
+    def Render(self, screen):
+        screen.fill((255, 255, 255))
+        frame_surface = self.video_feed.get_frame()
+
+        if frame_surface:
+            screen.blit(frame_surface, (320, 120))  # Position the video inside Pygame window
+            text_surface = pygame.font.SysFont('Arial', 40).render(self.message, True,
+                                                                   (100, 100, 100))
+            screen.blit(text_surface, (50, HEIGHT-50))
+
+        # perform live analysis of the user sign
+
+        self.textbox.update_text(self.video_feed.get_text())
+        self.textbox.process()
+        threading.Timer(1, lambda: self.clear_message()).start()
+
+    def clear_message(self):
+        self.textbox.update_text("")
+        # print the text
 
 
 class VideoRecord(SceneBase):
