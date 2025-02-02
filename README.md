@@ -12,3 +12,4 @@
 
 https://library.csi.cuny.edu/asl/databases
 
+![Alt text]([https://github.com/yourusername/yourrepo/raw/main/path/to/your/image.jpg](https://github.com/Oscar-T24/Signify-/blob/oscar-branch/a.png)
