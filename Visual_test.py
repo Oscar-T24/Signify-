@@ -87,6 +87,7 @@ while True:
             for id, landmark in enumerate(hand_landmarks.landmark):
                 height, width, _ = frame.shape
                 cx, cy = landmark.x , landmark.y
+                #print(cx,cy)
                 landmark_list += [cx,cy]
             #print(landmark_list)
             lastFiveFrames.add(np.copy(landmark_list))
@@ -100,7 +101,7 @@ while True:
             #print(landmark_list)
                 
                 
-        i +=1
+        i += 1
             
     # Show the resulting frame
     cv2.imshow("Hand Landmarks", frame)
