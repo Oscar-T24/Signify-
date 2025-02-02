@@ -50,7 +50,7 @@ while True:
             )
             try :
                 text = FACES[dfs[0]['identity'][0]]
-                if spam >= 10:
+                if spam >= 20:
                     spam = 0
                     print(text)
                     speech(text + " is in front of you")
