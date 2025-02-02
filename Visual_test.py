@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
+from txt_to_speech import speech
 
 PARAM_NB = 42
 LOADFILE = 'weights/RNN1.weights.h5'
@@ -51,7 +52,7 @@ cap = cv2.VideoCapture(0)
 
 i = 0
 correspondingInt = 0 # int corresponding to sign
-
+lastword = ""
 lastFiveFrames = Queue(5)
 while True:
 
@@ -90,7 +91,9 @@ while True:
             lastFiveFrames.add(np.copy(landmark_list))
             prediction = model.predict(np.expand_dims(lastFiveFrames.arr, axis=0),verbose = 0).tolist()[0]
             if (max(prediction) > 0.97 and prediction.index(max(prediction))!= 0):
-                print(INT_TO_WORD[prediction.index(max(prediction))])
+                if lastword != INT_TO_WORD[prediction.index(max(prediction))]:
+                    lastword =INT_TO_WORD[prediction.index(max(prediction))]
+                    speech(lastword)
 
             #print(landmark_list)
                 
