@@ -5,7 +5,14 @@ import playsound
 import os
 from txt_to_speech import speech
 
-FACES = { 'img/hello.jpg' : "Hugo"}
+import os
+
+FACES = {}
+
+for file_path in os.listdir("img/"):
+    if file_path.endswith((".jpg", ".png", ".jpeg")):
+        name = os.path.splitext(file_path)[0].capitalize()
+        FACES[f"img/{file_path}"] = name
 
 # Load pre-trained deep learning model (SSD)
 net = cv2.dnn.readNetFromCaffe(

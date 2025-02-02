@@ -34,6 +34,7 @@ class SceneBase:
         self.SwitchToScene(None)
 
 
+
 class SceneManager:
     """ Manages the scenes and transitions between them. """
     def __init__(self, initial_scene):
@@ -154,6 +155,7 @@ class Homepage(SceneBase):
         self.video_feed = video_feed
         self.media_button = Button(30, 140, 400, 100, (255, 100, 255), "Train from media")
         self.camera_button = Button(30, 300,400, 100, (255, 100, 255), "Open Camera")
+        self.recognition_button = Button(30, 500, 400, 100, (255, 100, 255), "Take a picture for face recognition")
 
     def ProcessInput(self, events, pressed_keys):
         for event in events:
@@ -165,6 +167,7 @@ class Homepage(SceneBase):
         screen.fill((255, 0, 0))  # Red background
         self.media_button.process()
         self.camera_button.process()
+        self.recognition_button.process()
 
         if self.media_button.is_clicked()[0]:
             self.SwitchToScene(VideoRecord(self.scene_manager, self.video_feed))
@@ -172,13 +175,68 @@ class Homepage(SceneBase):
         if self.camera_button.is_clicked()[0]:
             self.SwitchToScene(LiveDemo(self.scene_manager, self.video_feed))
 
+        if self.recognition_button.is_clicked()[0]:
+            self.SwitchToScene(FaceRecognition(self.scene_manager, self.video_feed))
 
+import pygame
+from pygame.locals import *
 
+class TextBox:
+    def __init__(self, x, y, w, h, font_size=40):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.color = (200, 200, 200)
+        self.text = ""
+        self.font = pygame.font.SysFont('Arial', font_size)
+        self.active = False
 
-    def on_open_camera(self):
-        """ Open camera feed. """
-        global show_video
-        show_video = not show_video
+    def handle_event(self, event):
+        pass
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+        text_surface = self.font.render(self.text, True, (0, 0, 0))
+        screen.blit(text_surface, (self.rect.x + 10, self.rect.y + 10))
+
+class FaceRecognition(SceneBase):
+    def __init__(self, scene_manager, video_feed):
+        super().__init__(scene_manager)
+        self.video_feed = video_feed
+        self.home = Button(90, 30, 400, 100, (120, 100, 255), "Home")
+        self.toggle = Button(490, 30, 400, 100, (120, 100, 255), "Take a snapshot")
+        self.textbox = TextBox(890, 40, 300, 50)  # Textbox for entering name
+        self.output = OutputFrame(50, HEIGHT - 100, 500, 50)
+
+    def ProcessInput(self, events, pressed_keys):
+        for event in events:
+            self.textbox.handle_event(event)
+
+    def Render(self, screen):
+        screen.fill((255, 255, 255))  # White background
+        self.home.process()
+        self.toggle.process()
+
+        if self.home.is_clicked()[0]:
+            self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
+
+        frame_surface = self.video_feed.get_frame()
+        if frame_surface:
+            screen.blit(frame_surface, (320, 120))  # Position the video feed
+
+        self.textbox.draw(screen)  # Draw the textbox
+
+        if self.toggle.is_clicked()[0]:
+            filename = f"img/{self.textbox.text}" if self.textbox.text else "snapshot"
+            self.video_feed.save_snapshot(filename)  # Save snapshot with entered name
+
+        name = self.video_feed.recognize()
+
+        self.output.process()
+        self.output.update_text(name)
+        threading.Timer(1, lambda: self.clear_message()).start()
+
+    def clear_message(self):
+        self.output.update_text("")
+        # print the text
 
 class LiveDemo(SceneBase):
     def __init__(self, scene_manager, video_feed):
@@ -205,6 +263,9 @@ class LiveDemo(SceneBase):
             screen.blit(text_surface, (50, HEIGHT-50))
 
         # perform live analysis of the user sign
+        self.home.process()
+        if self.home.is_clicked()[0]:
+            self.SwitchToScene(Homepage(self.scene_manager, self.video_feed))
 
         self.textbox.update_text(self.video_feed.get_text())
         self.textbox.process()
@@ -213,6 +274,7 @@ class LiveDemo(SceneBase):
     def clear_message(self):
         self.textbox.update_text("")
         # print the text
+
 
 
 class VideoRecord(SceneBase):
