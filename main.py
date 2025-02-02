@@ -11,6 +11,23 @@ import numpy as np
 import cv2
 import mediapipe as mp
 import math
+from tensorflow import keras
+from tensorflow.keras import layers
+
+class Queue:
+    def __init__(self,size):
+        self.PARAM_NB = 42
+        self.size = size
+        #fuck circular array, I aint doing that sht again
+        self.arr = [np.zeros(self.PARAM_NB) for i in range(size)]
+        self.iter = 0
+    def add(self,el):
+        try :
+            self.arr[self.iter] = el
+            self.iter +=1
+        except IndexError :
+            self.arr = self.arr[1:]
+            self.arr.append(el)
 
 class HandTrackingDynamic:
     def __init__(self, mode=False, maxHands=2, detectionCon=0.5, trackCon=0.5):
@@ -108,13 +125,43 @@ class HandTrackingDynamic:
 
 
 class LoadCV:
+    """
+    Main class to handle the camera and hand tracking.
+    Interface with the model
+    """
     def __init__(self,path=0):
         """Initialize the camera and hand tracking."""
         self.ptime = 0
+        self.i = 0
         self.cap = cv2.VideoCapture(path)
         self.detector = HandTrackingDynamic()  # Initialize the hand tracking module
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        # MODEL WISE PARAMETERS
+
+        self.lastword = ""
+        self.lastFiveFrames = Queue(5)
+
+        self.PARAM_NB = 42
+        self.LOADFILE = 'weights/RNN1.weights.h5'
+        self.INT_TO_WORD = ['NaN', 'Yes', 'No', 'Thank You', 'Hello', 'I love you', 'Goodbye', 'You are welcome', 'Please',
+                       'Sorry']
+
+        # Define RNN Model
+        self.model = keras.Sequential([
+            keras.Input(shape=(5, 42)),
+            layers.SimpleRNN(64, activation="relu", return_sequences=True),
+            layers.SimpleRNN(32, activation="relu"),  # Second RNN layer
+            layers.Dense(10, activation="softmax", name='outputLayer')  # Output layer for classification
+        ])
+
+        # Compile Model
+        self.model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+        if self.LOADFILE != None:
+            self.model.load_weights(self.LOADFILE)
+
+
 
         if not self.cap.isOpened():
             print("Cannot open camera")
@@ -212,7 +259,7 @@ class LoadCV:
         for i in range(len(landmarks)):
             col += ['x'+str(i) ,'y'+str(i)]
         df = pd.DataFrame(normalized_data, columns=col)
-        if capture :
+        if training :
             # Save the DataFrame to CSV, appending new data without header if file exists
             df.to_csv('new_hand_landmarks_data.csv', mode='a', header=not pd.io.common.file_exists('new_hand_landmarks_data.csv'),
                   index=False)
@@ -241,6 +288,46 @@ class LoadCV:
         """Release the camera and close OpenCV windows."""
         self.cap.release()
         cv2.destroyAllWindows()
+
+    def get_text(self):
+        """
+        Sends normalized hand landmark positions to the machine learning model.
+        """
+        ret, frame = self.cap.read()
+
+        if ret is None:
+            return None
+
+        if self.i % 10 == 0:
+            self.i = 0
+            landmark_list = []
+
+            landmarks, bbox = self.detector.findPosition(frame)
+
+            if bbox == []:  # No hand detected
+                return None
+
+            xmin, ymin, xmax, ymax = bbox  # Bounding box coordinates
+            #xmin, ymin, xmax, ymax = 0,0,640,480
+            #TEST if normalizing
+
+            for lm_pos in landmarks:
+                normalized_x = (lm_pos[1] - xmin) / (xmax - xmin)
+                normalized_y = (lm_pos[2] - ymin) / (ymax - ymin)
+                landmark_list += [normalized_x, normalized_y]
+
+            self.lastFiveFrames.add(np.copy(landmark_list))
+            prediction = self.model.predict(np.expand_dims(self.lastFiveFrames.arr, axis=0), verbose=0).tolist()[0]
+
+            if max(prediction) > 0.97 and prediction.index(max(prediction)) != 0:
+                if self.lastword != self.INT_TO_WORD[prediction.index(max(prediction))]:
+                    self.lastword = self.INT_TO_WORD[prediction.index(max(prediction))]
+                    print("WORD", self.lastword)
+
+        self.i += 1
+        return self.lastword
+
+
 
 
 def analyze(video_path):
@@ -271,4 +358,3 @@ def analyze(video_path):
         video.release()
         cv2.destroyAllWindows()  # Release resources
         print(f"Finished analyzing {video_path}. Recorded {frame_counter} frames.")
-
