@@ -87,7 +87,7 @@ while True:
             for id, landmark in enumerate(hand_landmarks.landmark):
                 height, width, _ = frame.shape
                 cx, cy = landmark.x , landmark.y
-                print(cx,cy)
+                #print(cx,cy)
                 landmark_list += [cx,cy]
             lastFiveFrames.add(np.copy(landmark_list))
             prediction = model.predict(np.expand_dims(lastFiveFrames.arr, axis=0),verbose = 0).tolist()[0]
