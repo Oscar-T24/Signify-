@@ -68,20 +68,24 @@ class OutputFrame:
         self.width = width
         self.height = height
 
-    def process(self, screen):
+    def process(self):
         '''Renders the text output frame with the text.'''
 
         # Draw the background rectangle for the output frame
-        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+        frame_surface = pygame.Surface((self.width, self.height))
+        frame_surface.fill(self.color)
 
         # Create a surface with the rendered text
         text_surface = self.font.render(self.text, True, (255, 255, 255))  # white text color
 
         # Center the text within the frame
-        text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+        text_rect = text_surface.get_rect(center=(self.width // 2, self.height // 2))
 
-        # Draw the text on the screen
-        screen.blit(text_surface, text_rect)
+        # Draw the text on the frame surface
+        frame_surface.blit(text_surface, text_rect)
+
+        # Now blit the frame to the screen
+        pygame.display.get_surface().blit(frame_surface, (self.x, self.y))
 
     def update_text(self, new_text):
         '''Updates the text to be displayed in the frame.'''
@@ -181,6 +185,7 @@ class VideoRecord(SceneBase):
         self.counter = 0
         self.recording_started = False
         self.message = ""
+        self.textbox = OutputFrame(50, HEIGHT-100, 500, 50)
 
     def ProcessInput(self, events, pressed_keys):
         for event in events:
@@ -199,6 +204,7 @@ class VideoRecord(SceneBase):
         self.record_button.process()
         self.home.process()
         self.snapshot.process()
+        self.textbox.process()
 
         if self.snapshot.is_clicked()[0]:
             res = self.video_feed.record(None)
