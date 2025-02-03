@@ -214,7 +214,7 @@ class LoadCV:
         try:
             df_existing = pd.read_csv('new_hand_landmarks_data.csv')
             last_frame = df_existing['Frame'].iloc[-1]  # Get the last Frame ID
-        except (pd.errors.EmptyDataError, FileNotFoundError,IndexError):
+        except (pd.errors.EmptyDataError, FileNotFoundError,IndexError,KeyError):
             last_frame = 0  # If no data exists, start from 0
         new_frame_id = last_frame+1
         # Determine the new frame ID

@@ -407,7 +407,7 @@ class VideoRecord(SceneBase):
 def run_game():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Improved Interface Example")
+    pygame.display.set_caption("Signify GUI")
     video_feed = LoadCV()  # Video feed for the scene
     scene_manager = SceneManager(None)
     homepage_scene = Homepage(scene_manager, video_feed)
